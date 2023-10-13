@@ -10,7 +10,10 @@ const updateValidation = Joi.object({
   description: Joi.string().optional().allow(""),
 });
 
+const deleteValidation = Joi.object({});
+
 module.exports = {
   createValidation,
   updateValidation,
+  deleteValidation,
 };

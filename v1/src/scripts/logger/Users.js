@@ -1,30 +1,9 @@
-const winston = require("winston");
+const BaseLogger = require("./BaseLogger");
 
-const usersLogger = winston.createLogger({
-  level: "info",
-  format: winston.format.json(),
-  defaultMeta: { service: "users-service" },
-  transports: [
-    new winston.transports.File({
-      filename: "v1/src/logs/users/error.log",
-      level: "error",
-    }),
-    new winston.transports.File({
-      filename: "v1/src/logs/users/info.log",
-      level: "info",
-    }),
-    new winston.transports.File({
-      filename: "v1/src/logs/users/combined.log",
-    }),
-  ],
-});
-
-if (process.env.NODE_ENV !== "production") {
-  usersLogger.add(
-    new winston.transports.Console({
-      format: winston.format.simple(),
-    })
-  );
+class UsersLogger extends BaseLogger {
+  constructor() {
+    super("users-service", "v1/src/logs/users");
+  }
 }
 
-module.exports = usersLogger;
+module.exports = new UsersLogger();

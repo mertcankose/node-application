@@ -5,7 +5,7 @@ const ProjectSchema = new Mongoose.Schema(
   {
     name: String,
     description: String,
-    user_id: {
+    user: {
       type: Mongoose.Types.ObjectId,
       ref: "user",
     },
@@ -20,10 +20,12 @@ const ProjectSchema = new Mongoose.Schema(
 
 // Kayıt edilen data loglanıyor.
 ProjectSchema.post("save", (object) => {
-  projectsLogger.log({
-    level: "info",
-    message: object,
-  });
+  projectsLogger.log("add", object, "info");
+});
+
+// update edilen datayı logla
+ProjectSchema.post("findOneAndUpdate", (object) => {
+  projectsLogger.log("update", object, "info");
 });
 
 module.exports = Mongoose.model("project", ProjectSchema);

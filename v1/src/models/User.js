@@ -22,4 +22,14 @@ UserSchema.post("save", (object) => {
   });
 });
 
+// Kayıt edilen data loglanıyor.
+UserSchema.post("save", (object) => {
+  usersLogger.log("add", object, "info");
+});
+
+// update edilen datayı logla
+UserSchema.post("findOneAndUpdate", (object) => {
+  usersLogger.log("update", object, "info");
+});
+
 module.exports = Mongoose.model("user", UserSchema);

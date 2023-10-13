@@ -21,7 +21,7 @@ const emailEvent = () => {
         from: process.env.EMAIL_USER,
         to: data.email,
         subject: "Your New Password",
-        html: `Your new password is: <b>${data.newPassword}</b>`,
+        html: `<p>${data.content}</p>`,
       });
 
       console.log("Message sent: %s", info.messageId);

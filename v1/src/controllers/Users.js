@@ -1,38 +1,39 @@
 const eventEmitter = require("../scripts/events/eventEmitter");
 const { passwordToHash, generateAccessToken, generateRefreshToken } = require("../scripts/utils/userHelpers");
-const { listProjects } = require("../services/Projects");
-const { insert, list, loginUser, findUser, modify } = require("../services/Users");
 const httpStatus = require("http-status");
 const uuid = require("uuid");
+const path = require("path");
+const UsersService = require("../services/UsersService");
+const ProjectsService = require("../services/ProjectsService");
+const throwError = require("../scripts/errors/throwError");
 
-const index = async (req, res) => {
+const index = async (req, res, next) => {
   try {
-    let response = await list();
+    let response = await UsersService.list();
     res.status(httpStatus.OK).send(response);
   } catch (err) {
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send(err);
+    next(err);
   }
 };
 
-const create = async (req, res) => {
-  const user = await findUser(req.body);
+const create = async (req, res, next) => {
+  const user = await UsersService.find({ email: req.body.email });
   if (user) return res.status(httpStatus.BAD_REQUEST).send({ message: "User already exists" });
 
   req.body.password = passwordToHash(req.body.password);
 
   try {
-    let response = await insert(req.body);
+    let response = await UsersService.insert(req.body);
     res.status(httpStatus.CREATED).send(response);
   } catch (err) {
-    console.log("err: ", err);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send(err);
+    next(err);
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   req.body.password = passwordToHash(req.body.password);
   try {
-    let user = await loginUser(req.body);
+    let user = await UsersService.find(req.body);
     if (!user) return res.status(httpStatus.NOT_FOUND).send({ message: "User not found" });
 
     user = {
@@ -47,42 +48,86 @@ const login = async (req, res) => {
 
     res.status(httpStatus.OK).send(user);
   } catch (err) {
-    console.log("err: ", err);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ message: err.toString() });
+    next(err);
   }
 };
 
-const getUserProjects = async (req, res) => {
+const getUserProjects = async (req, res, next) => {
   try {
-    let response = await listProjects({ user_id: req.user?._id });
+    const populateOptions = [
+      {
+        path: "user",
+        select: "full_name email profile_image",
+      },
+    ];
+    let response = await ProjectsService.list({ user: req.user?._id }, populateOptions);
     res.status(httpStatus.OK).send(response);
   } catch (err) {
-    console.log(err);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send(err);
+    next(err);
   }
 };
 
-const resetPassword = async (req, res) => {
+const resetPassword = async (req, res, next) => {
   const newPassword = uuid.v4().split("-")[0] || `usr-${new Date().getTime()}`;
   try {
-    let updatedUser = await modify({ email: req.body.email }, { password: passwordToHash(newPassword) });
-    if (!updatedUser) return res.status(httpStatus.NOT_FOUND).send({ message: "User not found" });
+    console.log("hash: ", passwordToHash(newPassword));
+    let updatedUser = await UsersService.modify({ email: req.body.email }, { password: passwordToHash(newPassword) });
+    if (!updatedUser) throwError("User not found", httpStatus.NOT_FOUND);
 
-    eventEmitter.emit("send_email", { email: req.body.email, newPassword: newPassword });
+    eventEmitter.emit("send_email", { email: req.body.email, content: `You new password is <b>${newPassword}</b>` });
     res.status(httpStatus.OK).send({ message: "Your password resetted successfully, please control your email" });
   } catch (err) {
-    console.log(err);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ error: err });
+    next(err);
   }
 };
 
-const update = async (req, res) => {
+const changePassword = async (req, res, next) => {
+  // password, password_new
   try {
-    let updatedUser = await modify({ _id: req.user?._id }, req.body);
+    let foundedUser = await UsersService.find(req.user);
+
+    if (foundedUser.password !== passwordToHash(req.body.password))
+      return res.status(httpStatus.BAD_REQUEST).send({ message: "Your password is wrong!" });
+
+    let updatedUser = await UsersService.modify({ email: req.user.email }, { password: passwordToHash(req.body.password_new) });
+    if (!updatedUser) throwError("User not found", httpStatus.NOT_FOUND);
+
+    eventEmitter.emit("send_email", { email: req.user.email, content: "You password changed successfully!" });
+    res.status(httpStatus.OK).send({ message: "Your password changed successfully!" });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const update = async (req, res, next) => {
+  try {
+    let updatedUser = await UsersService.modify({ _id: req.user?._id }, req.body);
     res.status(httpStatus.OK).send(updatedUser);
   } catch (err) {
-    console.log("err: ", err);
-    res.status(httpStatus.INTERNAL_SERVER_ERROR).send({ error: "hata" });
+    next(err);
+  }
+};
+
+const updateProfileImage = async (req, res, next) => {
+  try {
+    const uploadedFile = req.files.profile_image;
+
+    if (!uploadedFile) return res.status(httpStatus.BAD_REQUEST).send({ message: "Please upload a file" });
+
+    const imageExtension = path.extname(uploadedFile.name);
+    const fileName = `${req.user._id}${imageExtension}`;
+
+    const folderPath = path.join(__dirname, "../", "uploads/users", fileName);
+
+    uploadedFile.mv(folderPath, async (error) => {
+      if (error) throwError(error, httpStatus.INTERNAL_SERVER_ERROR);
+
+      let updatedUser = await UsersService.modify({ _id: req.user._id }, { profile_image: fileName });
+
+      return res.status(httpStatus.OK).send(updatedUser);
+    });
+  } catch (err) {
+    next(err);
   }
 };
 
@@ -93,4 +138,6 @@ module.exports = {
   getUserProjects,
   resetPassword,
   update,
+  changePassword,
+  updateProfileImage,
 };
