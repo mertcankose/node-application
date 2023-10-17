@@ -5,10 +5,10 @@ const config = require("./config");
 const loaders = require("./loaders");
 const events = require("./scripts/events");
 const fileUpload = require("express-fileupload");
-const { UsersRoute, ProjectsRoute, SectionsRoute, TasksRoute } = require("./routes");
 const path = require("path");
 const httpStatus = require("http-status");
 const errorHandler = require("./middlewares/errorHandler");
+const { UsersRoute, ProjectsRoute, SectionsRoute, TasksRoute } = require("./routes");
 
 config();
 loaders();

@@ -1,4 +1,4 @@
-class Service {
+class BaseService {
   async list(where, populateOptions) {
     const query = this.model.find(where || {});
 
@@ -32,4 +32,4 @@ class Service {
   }
 }
 
-module.exports = Service;
+module.exports = BaseService;
